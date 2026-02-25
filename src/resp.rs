@@ -34,3 +34,79 @@ fn binary_extract_line(buffer: &you [u8], index: &mut usize) -> RESPResult<Vec<u
     *index = final_index;
     Ok(output)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_binary_extract_line_empty_buffer() {
+        let bufffer = "".as_bytes();
+        let mut index: usize = 0;
+
+        match binary_extract_line(buffer, &mut index) {
+            Err(RESPError::OutOfBounds(index)) => assert_eq!(index, 0),
+            _ => panic!(),
+        }
+    }
+
+    #[test]
+    fn test_binary_extract_line_single_character() {
+        let buffer = "O".as_bytes();
+        let mut index: usize = 0;
+
+        match binary_extract_line(buffer, &mut index) {
+            Err(RESPError::OutOfBounds(index)) => assert_eq!(index, 1),
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn test_binary_extract_line_index_too_advanced() {
+        let buffer = "OK".as_bytes();
+        let mut index: usize = 1;
+
+        match binary_extract_line(buffer, &mut index) {
+            Err(RESPError::OutOfBounds(index)) => assert_eq!(index, 1),
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn test_binary_extract_line_no_seperator() {
+        let buffer = "OK".as_bytes();
+        let mut index: usize = 0;
+
+        match binary_extract_line(buffer, &mut index) {
+            Err(RESPError::OutOfBounds(index)) => assert_eq!(index, 0),
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn test_binary_extract_line_half_seperator() {
+        let buffer = "OK\r".as_bytes();
+        let mut index: usize = 0;
+
+        match binary_extract_line(buffer, &mut index) {
+            Err(RESPError::OutOfBounds(index)) => assert_eq!(index, 0),
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn test_binary_extract_line_incorrect_seperator() {
+        let buffer = "OK\n".as_bytes();
+        let mut index: usize = 0;
+
+        match binary_extract_line(buffer, &mut index) {
+            Err(RESPError::OutOfBounds(index)) => assert_eq!(index, 0),
+            _ => panic!(),
+        }
+    }
+    #[test]
+    fn test_binary_extract_line() {
+        let buffer = "OK\r\n".as_bytes();
+        let mut index: usize = 0;
+
+        let output = binary_extract_line(buffer, &mut index).unwrap();
+
+        assert_eq!(output, "OK".as_bytes());
+        assert_eq!(index, 4);
+    }
+}
