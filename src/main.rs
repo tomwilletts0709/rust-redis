@@ -3,6 +3,9 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
+mod resp;
+mod resp_results;
+
 #[tokio::main]
 async fn main() {
     let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
@@ -37,8 +40,9 @@ async fn handle_connection(mut stream: TcpStream) {
             Err(e) => {
                 println!("error: {}", e);
                 break;
+                }
             }
         }
     }
-}
 
+}
