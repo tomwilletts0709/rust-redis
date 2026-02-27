@@ -31,7 +31,7 @@ async fn main() {
         }
     }
 
-async fn handle_connection(mut stream: TcpStream) {
+async fn handle_connection(mut stream: TcpStream, storage: Arc<Mutex<Storage>>) {
     let mut buffer = [0; 512];
 
 
