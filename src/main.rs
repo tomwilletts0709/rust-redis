@@ -5,15 +5,20 @@ use tokio::{
 
 mod resp;
 mod resp_results;
+mod server; 
+mod storage; 
+mod storage_result;
 
 #[tokio::main]
 async fn main() {
-    let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
+    let listener = TcpListener::bind("127.0.0.1:6379").await?;
+
+    let mut storage = Storage::new()
 
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {
-                tokio::spawn(handle_connection(stream));
+                tokio::spawn(handle_connection(stream, storage));
             }
             Err(e) => {
                 println!("error: {}", e);
