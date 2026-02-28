@@ -1,4 +1,5 @@
 use crate::resp::{bytes_to_resp, RESP};
+use crate::resp_results::RESPResult;
 use crate::storage::Storage;
 use std::syn::{Arc, Mutex};
 
@@ -38,20 +39,43 @@ async fn handle_connection(mut stream: TcpStream, storage: Arc<Mutex<Storage>>) 
     loop {
         match stream.read(&mut buffer).await {
             Ok(size) if size != 0 => {
-                let response = "+PONG\r\n";
-                stream.write(response.as_bytes()).unwrap();
-                stream.flush().unwrap();
-            }
-            Ok(_) => {
-                println!("connection closed");
-                break;
-            }
-            Err(e) => {
-                println!("error: {}", e);
-                break;
+                let response = RESP::SimpleString(String::from("PONG"));
+
+                if let Err(e) = stream.write_all(response.to_string().as_bytes()).await {
+                    eprintln!("error writing response: {}", e);
+                }
+                if let Err(e) = stream.flush().await {
+                    eprintln!("error flushing stream: {}", e);
                 }
             }
+            Ok(_) => {
+                eprintln!("connection closed");
+                break;
+            }
+
         }
     }
+}
 
+
+fn parser_router(
+    buffer: &[u8],
+    index: &mut usize,
+) -> Option<fn(&[u8], &mut usize) -> RESPResult<RESP>> {
+    match buffer[*index] {
+        b'+' => Some(parse_simple_string),
+        _ => None,
+    }
+}
+
+pub fn bytes_to_resp(buffer: &[u8], index: &mut usize) -> RESPResult<RESP> {
+    match parse_router(buffer, index) {
+        Some(parse_func) => {
+            let result: RESP = parse_func(buffer, index)?;
+            Ok(result)
+        }
+        None => {
+            Err(RESPError::Unknown)
+        }
+    }
 }
