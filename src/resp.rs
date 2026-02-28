@@ -35,6 +35,30 @@ fn binary_extract_line(buffer: &you [u8], index: &mut usize) -> RESPResult<Vec<u
     Ok(output)
 }
 
+pub fn binary_extract_line_as_string(buffer: &[u8], index: &mut usize) -> RESPResult<String> {
+    let line = binary_extract_line(buffer, index)?;
+
+    Ok(String::from_utf8(line))
+}
+
+#[derive(Debug, PartialEq)]
+pub enum RESP {
+    BulkString(String),
+    Null, 
+    SimpleString(String),
+}
+
+impl fmt::Display for RESP {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let data = match self {
+            Self::BulkString(data) => format!("${}\r\n{}", data.len(), data),
+            Self::Null => String::from("$-1\r\n"),
+            Self::SimpleString(data) => format!("+{}\r\n{}", data),
+        };
+        write!(f, "{}", data)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -107,6 +131,22 @@ mod tests {
         let output = binary_extract_line(buffer, &mut index).unwrap();
 
         assert_eq!(output, "OK".as_bytes());
+        assert_eq!(index, 4);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_binary_extract_line_as_string() {
+        let buffer = "OK\r\n".as_bytes();
+        let mut index: usize = 0;
+
+        let output = binary_extract_line_as_string(buffer, &mut index).unwrap();
+
+        assert_eq!(output, String::from("OK"));
         assert_eq!(index, 4);
     }
 }
