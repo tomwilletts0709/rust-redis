@@ -8,7 +8,7 @@ pub enum StorageValue {
 }
 
 pub struct Storage {
-    store: HashMap<String, StorageValue>,
+    store: HashMap<String, StorageData>,
 }
 
 impl Storage {
@@ -36,3 +36,26 @@ impl Storage {
         Ok(RESP::BulkString(command[1].clone()))
     }
 }
+
+impl StorageData {
+    pub fn add_expiry(&mut self, expiry: Duration) {
+        self.expiry = Some(expiry);
+    }
+}
+
+impl From<String> for StorageData {
+    fn from(s: String) -> StorageData {
+        StorageData {
+            value: StorageValue::String(s),
+            creation_time: SystemTime::now(),
+            expiry: None,
+        }
+    }
+}
+
+impl PartialEq for StorageData {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
