@@ -3,7 +3,9 @@ use std::fmt;
 #[derive(Debug)]
 pub enum StorageError {
     IncorrectRequest, 
-    CommandNotAvailable(String)
+    CommandNotAvailable(String),
+    CommandSyntaxError(String),
+    CommandInternalError(String),
 }
 
 impl fmt::Display for StorageError {
@@ -14,6 +16,12 @@ impl fmt::Display for StorageError {
             }
             StorageError::CommandNotAvailable(c) => {
                 write!(f, "The requested command {} is not available!", c)
+            }
+            StorageError::CommandSyntaxError(c) => {
+                write!(f, "The requested command {} has a syntax error!", c)
+            }
+            StorageError::CommandInternalError(c) => {
+                write!(f, "The requested command {} has an internal error!", c)
             }
         }
     }
