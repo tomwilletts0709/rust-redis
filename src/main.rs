@@ -1,7 +1,4 @@
-use crate::resp::RESP;
-use crate::resp::{bytes_to_resp, RESP};
-use crate::resp_results::RESPResult;
-use crate::storage::Storage;
+use rust_redis::{parse_resp_array, Storage};
 use std::sync::{Arc, Mutex};
 
 use tokio::{
@@ -9,22 +6,16 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-mod resp;
-mod resp_results;
-mod server; 
-mod storage; 
-mod storage_result;
-
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind("127.0.0.1:6379").await?;
 
-    let mut storage = Storage::new()
+    let storage = Arc::new(Mutex::new(Storage::new()));
 
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {
-                tokio::spawn(handle_connection(stream, storage));
+                tokio::spawn(handle_connection(stream, storage.clone()));
             }
             Err(e) => {
                 println!("error: {}", e);
@@ -32,15 +23,37 @@ async fn main() {
             }
         }
     }
+}
 
 async fn handle_connection(mut stream: TcpStream, storage: Arc<Mutex<Storage>>) {
     let mut buffer = [0; 512];
 
-
     loop {
         match stream.read(&mut buffer).await {
             Ok(size) if size != 0 => {
-                let response = RESP::SimpleString(String::from("PONG"));
+                let mut index = 0;
+                let parsed = match parse_resp_array(&buffer[..size], &mut index) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        let err_resp = format!("-ERR parse error: {}\r\n", e);
+                        let _ = stream.write_all(err_resp.as_bytes()).await;
+                        let _ = stream.flush().await;
+                        continue;
+                    }
+                };
+
+                let response = match {
+                    let mut guard = storage.lock().unwrap();
+                    guard.process_command(&parsed)
+                } {
+                    Ok(r) => r,
+                    Err(e) => {
+                        let err_resp = format!("-ERR {}\r\n", e);
+                        let _ = stream.write_all(err_resp.as_bytes()).await;
+                        let _ = stream.flush().await;
+                        continue;
+                    }
+                };
 
                 if let Err(e) = stream.write_all(response.to_string().as_bytes()).await {
                     eprintln!("error writing response: {}", e);
@@ -53,30 +66,10 @@ async fn handle_connection(mut stream: TcpStream, storage: Arc<Mutex<Storage>>) 
                 eprintln!("connection closed");
                 break;
             }
-
-        }
-    }
-}
-
-
-fn parse_router(
-    buffer: &[u8],
-    index: &mut usize,
-) -> Option<fn(&[u8], &mut usize) -> RESPResult<RESP>> {
-    match buffer[*index] {
-        b'+' => Some(parse_simple_string),
-        _ => None,
-    }
-}
-
-pub fn bytes_to_resp(buffer: &[u8], index: &mut usize) -> RESPResult<RESP> {
-    match parse_router(buffer, index) {
-        Some(parse_func) => {
-            let result: RESP = parse_func(buffer, index)?;
-            Ok(result)
-        }
-        None => {
-            Err(RESPError::Unknown)
+            Err(e) => {
+                eprintln!("read error: {}", e);
+                break;
+            }
         }
     }
 }

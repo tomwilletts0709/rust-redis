@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::resp_results::{RESPError, RESPResult};
 
 fn binary_extract_line(buffer: &[u8], index: &mut usize) -> RESPResult<Vec<u8>> {
@@ -19,7 +21,7 @@ fn binary_extract_line(buffer: &[u8], index: &mut usize) -> RESPResult<Vec<u8>> 
     for &elem in buffer[*index..].iter() {
         final_index += 1;
 
-        if elem == b'\r' && previous_elem == b'\n' {
+        if elem == b'\n' && previous_elem == b'\r' {
             separator_found = true;
             break;
         }
@@ -37,8 +39,44 @@ fn binary_extract_line(buffer: &[u8], index: &mut usize) -> RESPResult<Vec<u8>> 
 
 pub fn binary_extract_line_as_string(buffer: &[u8], index: &mut usize) -> RESPResult<String> {
     let line = binary_extract_line(buffer, index)?;
+    String::from_utf8(line).map_err(|_| RESPError::FromUtf8)
+}
 
-    Ok(String::from_utf8(line))
+/// Parse a RESP array (e.g. *1\r\n$4\r\nPING\r\n) into Vec<String>.
+pub fn parse_resp_array(buffer: &[u8], index: &mut usize) -> RESPResult<Vec<String>> {
+    if *index >= buffer.len() {
+        return Err(RESPError::OutOfBounds(*index));
+    }
+    if buffer[*index] != b'*' {
+        return Err(RESPError::Unknown);
+    }
+    *index += 1;
+
+    let count_str = binary_extract_line_as_string(buffer, index)?;
+    let count: usize = count_str.parse()?;
+
+    let mut result = Vec::with_capacity(count);
+    for _ in 0..count {
+        if *index >= buffer.len() {
+            return Err(RESPError::OutOfBounds(*index));
+        }
+        if buffer[*index] != b'$' {
+            return Err(RESPError::Unknown);
+        }
+        *index += 1;
+
+        let len_str = binary_extract_line_as_string(buffer, index)?;
+        let len: usize = len_str.parse()?;
+
+        if buffer.len() - *index < len + 2 {
+            return Err(RESPError::OutOfBounds(*index));
+        }
+        let data = &buffer[*index..*index + len];
+        *index += len + 2; // skip \r\n
+
+        result.push(String::from_utf8(data.to_vec()).map_err(|_| RESPError::FromUtf8)?);
+    }
+    Ok(result)
 }
 
 #[derive(Debug, PartialEq)]
@@ -51,9 +89,9 @@ pub enum RESP {
 impl fmt::Display for RESP {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let data = match self {
-            Self::BulkString(data) => format!("${}\r\n{}", data.len(), data),
+            Self::BulkString(data) => format!("${}\r\n{}\r\n", data.len(), data),
             Self::Null => String::from("$-1\r\n"),
-            Self::SimpleString(data) => format!("+{}\r\n{}", data),
+            Self::SimpleString(data) => format!("+{}\r\n", data),
         };
         write!(f, "{}", data)
     }
@@ -89,7 +127,7 @@ mod tests {
         let mut index: usize = 1;
 
         match binary_extract_line(buffer, &mut index) {
-            Err(RESPError::OutOfBounds(index)) => assert_eq!(index, 1),
+            Err(RESPError::OutOfBounds(idx)) => assert_eq!(idx, 2),
             _ => panic!(),
         }
     }
@@ -99,7 +137,7 @@ mod tests {
         let mut index: usize = 0;
 
         match binary_extract_line(buffer, &mut index) {
-            Err(RESPError::OutOfBounds(index)) => assert_eq!(index, 0),
+            Err(RESPError::OutOfBounds(idx)) => assert_eq!(idx, 2),
             _ => panic!(),
         }
     }
@@ -109,7 +147,7 @@ mod tests {
         let mut index: usize = 0;
 
         match binary_extract_line(buffer, &mut index) {
-            Err(RESPError::OutOfBounds(index)) => assert_eq!(index, 0),
+            Err(RESPError::OutOfBounds(idx)) => assert_eq!(idx, 3),
             _ => panic!(),
         }
     }
@@ -119,7 +157,7 @@ mod tests {
         let mut index: usize = 0;
 
         match binary_extract_line(buffer, &mut index) {
-            Err(RESPError::OutOfBounds(index)) => assert_eq!(index, 0),
+            Err(RESPError::OutOfBounds(idx)) => assert_eq!(idx, 3),
             _ => panic!(),
         }
     }
@@ -133,11 +171,6 @@ mod tests {
         assert_eq!(output, "OK".as_bytes());
         assert_eq!(index, 4);
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
 
     #[test]
     fn test_binary_extract_line_as_string() {

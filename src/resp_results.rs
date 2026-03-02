@@ -1,11 +1,10 @@
 use std::fmt;
-use std::num;
 use std::string::FromUtf8Error;
 
 #[derive(Debug)]
 pub enum RESPError {
     FromUtf8,
-    IncorrectLength(RESPLength),
+    IncorrectLength(usize),
     OutOfBounds(usize),
     Unknown,
     WrongType,
@@ -26,7 +25,13 @@ impl fmt::Display for RESPError {
 }
 
 impl From<FromUtf8Error> for RESPError {
-    fn from(_err: num::ParseIntError) -> Self {
+    fn from(_err: FromUtf8Error) -> Self {
+        Self::FromUtf8
+    }
+}
+
+impl From<std::num::ParseIntError> for RESPError {
+    fn from(_err: std::num::ParseIntError) -> Self {
         Self::ParseInt
     }
 }
