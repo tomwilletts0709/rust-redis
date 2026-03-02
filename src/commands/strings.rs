@@ -1,38 +1,32 @@
 use crate::{
     resp::RESP,
-    storage_result::StorageResult,
     storage::Storage,
-    error::Error,
+    storage_result::{StorageError, StorageResult},
 };
 
-pub struct SetCommand {
-    pub key: String,
-    pub value: String,
+pub trait Command {
+    fn execute(&self, store: &mut Storage, args: &[String]) -> StorageResult<RESP>;
 }
 
+pub struct SetCommand;
+
 impl Command for SetCommand {
-    fn execute(&self, args: &[String]) -> StorageResult<RESP> {
+    fn execute(&self, store: &mut Storage, args: &[String]) -> StorageResult<RESP> {
         match args {
             [key, value] => {
-                store.set(key.to_string(), value.as_bytes().to_vec());
-                Ok(RESP::SimpleString("OK".to_string()))
+                store.process_command(&["SET".into(), key.clone(), value.clone()])
             }
             _ => Err(StorageError::CommandSyntaxError("SET requires 2 arguments".into())),
         }
     }
 }
 
-pub struct GetCommand {
-    pub key: String,
-}
+pub struct GetCommand;
 
 impl Command for GetCommand {
-    fn execute(&self, args: &[String]) -> StorageResult<RESP> {
+    fn execute(&self, store: &mut Storage, args: &[String]) -> StorageResult<RESP> {
         match args {
-            [key] => match store.get(key) {
-                Some(bytes) => Ok(RESP::BulkString(String::from_utf8(bytes).unwrap())),
-                None => Ok(RESP::Null),
-            }
+            [key] => store.process_command(&["GET".into(), key.clone()]),
             _ => Err(StorageError::CommandSyntaxError("GET requires 1 argument".into())),
         }
     }
