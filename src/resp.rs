@@ -1,31 +1,31 @@
-use crate::resp_result::{RESPError, RESPResult};
+use crate::resp_results::{RESPError, RESPResult};
 
-fn binary_extract_line(buffer: &you [u8], index: &mut usize) -> RESPResult<Vec<u8>> {
+fn binary_extract_line(buffer: &[u8], index: &mut usize) -> RESPResult<Vec<u8>> {
     let mut output = Vec::new();
 
-    if index >= buffer.len(){
+    if *index >= buffer.len(){
         return Err(RESPError::OutOfBounds(*index));
     }
 
-    if buffer.len() - *index 1 < 2 {
-        *index - buffer.len();
+    if buffer.len() - *index < 2 {
+        *index = buffer.len();
         return Err(RESPError::OutOfBounds(*index));
     }
 
     let mut previous_elem: u8 = buffer[*index].clone();
-    let mut seperator_found: bool = false; 
+    let mut separator_found: bool = false; 
     let mut final_index: usize = *index;
 
     for &elem in buffer[*index..].iter() {
         final_index += 1;
 
         if elem == b'\r' && previous_elem == b'\n' {
-            seperator_found = true;
+            separator_found = true;
             break;
         }
         previous_elem = elem.clone();
     }
-    if !seperator_found {
+    if !separator_found {
         *index = final_index;
         return Err(RESPError::OutOfBounds(*index));
     }
@@ -64,7 +64,7 @@ mod tests {
     use super::*;
 
     fn test_binary_extract_line_empty_buffer() {
-        let bufffer = "".as_bytes();
+        let buffer = "".as_bytes();
         let mut index: usize = 0;
 
         match binary_extract_line(buffer, &mut index) {
@@ -94,7 +94,7 @@ mod tests {
         }
     }
     #[test]
-    fn test_binary_extract_line_no_seperator() {
+    fn test_binary_extract_line_no_separator() {
         let buffer = "OK".as_bytes();
         let mut index: usize = 0;
 
@@ -104,7 +104,7 @@ mod tests {
         }
     }
     #[test]
-    fn test_binary_extract_line_half_seperator() {
+    fn test_binary_extract_line_half_separator() {
         let buffer = "OK\r".as_bytes();
         let mut index: usize = 0;
 
@@ -114,7 +114,7 @@ mod tests {
         }
     }
     #[test]
-    fn test_binary_extract_line_incorrect_seperator() {
+    fn test_binary_extract_line_incorrect_separator() {
         let buffer = "OK\n".as_bytes();
         let mut index: usize = 0;
 

@@ -27,5 +27,5 @@ impl fmt::Display for StorageError {
     }
 }
 
-pub type StorageResult<T> = Result <T, StorageError>'
+pub type StorageResult<T> = Result<T, StorageError>;
 

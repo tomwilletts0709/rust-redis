@@ -1,7 +1,8 @@
+use crate::resp::RESP;
 use crate::resp::{bytes_to_resp, RESP};
 use crate::resp_results::RESPResult;
 use crate::storage::Storage;
-use std::syn::{Arc, Mutex};
+use std::sync::{Arc, Mutex};
 
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -58,7 +59,7 @@ async fn handle_connection(mut stream: TcpStream, storage: Arc<Mutex<Storage>>) 
 }
 
 
-fn parser_router(
+fn parse_router(
     buffer: &[u8],
     index: &mut usize,
 ) -> Option<fn(&[u8], &mut usize) -> RESPResult<RESP>> {

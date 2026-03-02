@@ -1,8 +1,8 @@
 use crate::resp::RESP;
-use crate::storage_result::{StorageError, StorageResult}
-use std::colelctins::HashMap;
+use crate::storage_result::{StorageError, StorageResult};
+use std::collections::HashMap;
 
-#[derive(Debugm PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum StorageValue {
     String(String),
 }
