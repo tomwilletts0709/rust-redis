@@ -1,4 +1,5 @@
 pub mod error;
+pub mod memory;
 pub mod middleware;
 pub mod resp;
 pub mod resp_results;
